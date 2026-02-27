@@ -10,7 +10,23 @@ git clone git@github.com:estherwho-1/sage-financial-analyst.git
 cd sage-financial-analyst
 ```
 
-### 2. Install Dependencies
+**Note:** Always activate the virtual environment before running SAGE:
+```bash
+source venv/bin/activate
+```
+
+### 2. Create Virtual Environment
+```bash
+# Create virtual environment
+python3 -m venv venv
+
+# Activate it
+source venv/bin/activate  # On macOS/Linux
+# OR
+venv\Scripts\activate     # On Windows
+```
+
+### 3. Install Dependencies
 ```bash
 # Minimal (for mock mode testing)
 pip install pydantic python-dotenv rich
@@ -19,7 +35,7 @@ pip install pydantic python-dotenv rich
 pip install -r requirements.txt
 ```
 
-### 3. Test in Mock Mode (No API Keys Needed)
+### 4. Test in Mock Mode (No API Keys Needed)
 ```bash
 # Run test suite
 python tests/test_sage.py
@@ -28,7 +44,7 @@ python tests/test_sage.py
 python main.py "What is NVIDIA's competitive position in AI chips?"
 ```
 
-### 4. Setup Environment for Production Mode
+### 5. Setup Environment for Production Mode
 
 **Copy the environment template:**
 ```bash
@@ -54,7 +70,7 @@ SAGE_MODE=production
 
 **Note:** Mock mode works without any keys. Production mode requires at minimum: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`
 
-### 5. Run with Real APIs
+### 6. Run with Real APIs
 ```bash
 python main.py "Research Tesla Q4 2025 earnings"
 ```
