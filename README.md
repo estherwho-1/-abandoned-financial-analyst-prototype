@@ -12,26 +12,38 @@ cd sage-financial-analyst
 
 **Note:** Always activate the virtual environment before running SAGE:
 ```bash
-source venv/bin/activate
+source .venv/bin/activate  # If using uv
+# OR
+source venv/bin/activate   # If using traditional venv
 ```
 
-### 2. Create Virtual Environment
+### 2. Setup with uv (Recommended)
 ```bash
-# Create virtual environment
-python3 -m venv venv
+# Install uv if not already installed
+brew install uv
+
+# Create virtual environment with Python 3.12
+uv venv --python 3.12
 
 # Activate it
-source venv/bin/activate  # On macOS/Linux
+source .venv/bin/activate  # On macOS/Linux
 # OR
-venv\Scripts\activate     # On Windows
+.venv\Scripts\activate     # On Windows
 ```
 
 ### 3. Install Dependencies
 ```bash
 # Minimal (for mock mode testing)
-pip install pydantic python-dotenv rich
+uv pip install pydantic python-dotenv rich
 
 # Full (for production with all APIs)
+uv pip install -r requirements.txt
+```
+
+**Alternative: Traditional venv (if you don't have uv)**
+```bash
+python3.12 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
