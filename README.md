@@ -1,17 +1,62 @@
 # 🏦 SAGE - Strategic Analyst & Guided Equity-researcher
 
+AI financial research analyst with multi-model orchestration. Searches the web, runs quantitative analysis, builds persistent knowledge, and streams real-time briefings.
+
 ## Quick Start
 
+### 1. Clone the Repository
 ```bash
-# Install dependencies
-cd sage
-pip install -r requirements.txt
+git clone git@github.com:estherwho-1/sage-financial-analyst.git
+cd sage-financial-analyst
+```
 
-# Run mock test (no API keys needed)
+### 2. Install Dependencies
+```bash
+# Minimal (for mock mode testing)
+pip install pydantic python-dotenv rich
+
+# Full (for production with all APIs)
+pip install -r requirements.txt
+```
+
+### 3. Test in Mock Mode (No API Keys Needed)
+```bash
+# Run test suite
 python tests/test_sage.py
 
-# Run with real APIs (after adding keys to config/.env)
-python main.py "Research NVIDIA's competitive position"
+# Run example query
+python main.py "What is NVIDIA's competitive position in AI chips?"
+```
+
+### 4. Setup Environment for Production Mode
+
+**Copy the environment template:**
+```bash
+cp config/.env.example config/.env
+```
+
+**Edit `config/.env` and add your API keys:**
+```bash
+# Required for core functionality
+ANTHROPIC_API_KEY=sk-ant-...      # Get from: https://console.anthropic.com/
+OPENAI_API_KEY=sk-...              # Get from: https://platform.openai.com/
+GOOGLE_API_KEY=...                 # Get from: https://makersuite.google.com/
+
+# Optional for full features
+HYPERBROWSER_API_KEY=...           # Get from: https://hyperbrowser.ai/
+E2B_API_KEY=...                    # Get from: https://e2b.dev/
+TURBOPUFFER_API_KEY=...            # Get from: https://turbopuffer.com/
+BRAINTRUST_API_KEY=...             # Get from: https://braintrust.dev/ (optional)
+
+# Mode: "mock" or "production"
+SAGE_MODE=production
+```
+
+**Note:** Mock mode works without any keys. Production mode requires at minimum: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`
+
+### 5. Run with Real APIs
+```bash
+python main.py "Research Tesla Q4 2025 earnings"
 ```
 
 ## Project Structure
