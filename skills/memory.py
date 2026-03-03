@@ -40,7 +40,7 @@ class MemorySkill:
     def __init__(self, model_client: ModelClient, stream: StreamManager):
         self.model = model_client
         self.stream = stream
-        self.is_mock = config.is_mock_mode()
+        self.is_mock = config.mock_memory
         self.memory_store = {}  # Mock in-memory storage
     
     async def recall(

@@ -32,7 +32,7 @@ class QuantAnalysisSkill:
     def __init__(self, model_client: ModelClient, stream: StreamManager):
         self.model = model_client
         self.stream = stream
-        self.is_mock = config.is_mock_mode()
+        self.is_mock = config.mock_e2b
         self.max_retries = 3
     
     async def analyze(
