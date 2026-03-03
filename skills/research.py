@@ -30,7 +30,7 @@ class ResearchSkill:
     def __init__(self, model_client: ModelClient, stream: StreamManager):
         self.model = model_client
         self.stream = stream
-        self.is_mock = config.is_mock_mode()
+        self.is_mock = config.mock_search
     
     async def research(self, question: str, context: str = "") -> ResearchResult:
         """
@@ -103,10 +103,21 @@ Example: ["nvidia quarterly earnings 2025", "nvidia ai chip market share"]"""
         """Execute web searches."""
         if self.is_mock:
             return self._mock_search(queries)
-        
-        # Real Hyperbrowser implementation would go here
-        # For now, use mock
-        return self._mock_search(queries)
+
+        from hyperbrowser import AsyncHyperbrowser
+        from hyperbrowser.models import WebSearchParams
+
+        client = AsyncHyperbrowser(api_key=config.hyperbrowser_api_key)
+        results = []
+        try:
+            for query in queries:
+                resp = await client.web.search(WebSearchParams(query=query))
+                if resp.data and resp.data.results:
+                    for item in resp.data.results:
+                        results.append({"title": item.title, "url": item.url, "snippet": item.description})
+        finally:
+            await client.close()
+        return results[:10]
     
     def _mock_search(self, queries: list[str]) -> list[dict]:
         """Mock search results."""
@@ -130,9 +141,27 @@ Example: ["nvidia quarterly earnings 2025", "nvidia ai chip market share"]"""
         """Fetch full content from search result URLs."""
         if self.is_mock:
             return self._mock_fetch(search_results)
-        
-        # Real Hyperbrowser fetch would go here
-        return self._mock_fetch(search_results)
+
+        from hyperbrowser import AsyncHyperbrowser
+        from hyperbrowser.models import FetchParams
+
+        client = AsyncHyperbrowser(api_key=config.hyperbrowser_api_key)
+        sources = []
+        try:
+            for result in search_results[:5]:
+                try:
+                    resp = await client.web.fetch(FetchParams(url=result["url"]))
+                    if resp.data:
+                        sources.append({
+                            "title": result["title"],
+                            "url": result["url"],
+                            "content": (resp.data.markdown or "")[:5000],
+                        })
+                except Exception:
+                    continue
+        finally:
+            await client.close()
+        return sources
     
     def _mock_fetch(self, search_results: list[dict]) -> list[dict]:
         """Mock fetched content."""

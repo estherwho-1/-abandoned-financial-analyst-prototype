@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """
 SAGE Test Suite
-Tests all components in mock mode (no API keys required)
+Tests all components in mock mode (no API keys required).
+
+To test individual services in production mode, set per-service flags:
+  MOCK_LLM=false .venv/bin/python tests/test_sage.py      # real LLM calls
+  MOCK_SEARCH=false .venv/bin/python tests/test_sage.py    # real Hyperbrowser
+  MOCK_E2B=false .venv/bin/python tests/test_sage.py       # real E2B sandbox
+  MOCK_MEMORY=false .venv/bin/python tests/test_sage.py    # real Turbopuffer
 """
 import asyncio
 import sys
