@@ -63,27 +63,42 @@ class Config(BaseModel):
         return model_id.split("/", 1)[-1]
 
     def model_post_init(self, __context):
-        """Validate per-service flags against available API keys."""
+        """Validate per-service flags against available API keys.
+
+        LLM provider logic:
+        - If OPENROUTER_API_KEY is set, all roles route through OpenRouter
+          (provider overrides and native keys are ignored).
+        - Otherwise, each role uses its native provider and needs the
+          corresponding API key (ANTHROPIC, OPENAI, GOOGLE).
+        """
         if not self.mock_llm:
-            provider_keys = {
-                "anthropic": ("ANTHROPIC_API_KEY", self.anthropic_api_key),
-                "openai": ("OPENAI_API_KEY", self.openai_api_key),
-                "google": ("GOOGLE_API_KEY", self.google_api_key),
-                "openrouter": ("OPENROUTER_API_KEY", self.openrouter_api_key),
-            }
-            needed = {self.orchestrator_provider, self.extractor_provider, self.longform_provider}
-            missing = []
-            for provider in needed:
-                if provider in provider_keys:
-                    key_name, key_val = provider_keys[provider]
-                    if not key_val:
-                        missing.append(key_name)
-            if missing:
-                warnings.warn(
-                    f"MOCK_LLM=false but missing keys: {', '.join(missing)}. "
-                    "Forcing mock_llm=True."
-                )
-                self.mock_llm = True
+            if self.openrouter_api_key:
+                # OpenRouter handles everything — override providers
+                self.orchestrator_provider = "openrouter"
+                self.extractor_provider = "openrouter"
+                self.longform_provider = "openrouter"
+            else:
+                # Native providers — check each role has its key
+                provider_keys = {
+                    "anthropic": ("ANTHROPIC_API_KEY", self.anthropic_api_key),
+                    "openai": ("OPENAI_API_KEY", self.openai_api_key),
+                    "google": ("GOOGLE_API_KEY", self.google_api_key),
+                }
+                needed = {self.orchestrator_provider, self.extractor_provider, self.longform_provider}
+                missing = []
+                for provider in needed:
+                    if provider in provider_keys:
+                        key_name, key_val = provider_keys[provider]
+                        if not key_val:
+                            missing.append(key_name)
+                    elif provider == "openrouter":
+                        missing.append("OPENROUTER_API_KEY")
+                if missing:
+                    warnings.warn(
+                        f"MOCK_LLM=false but missing keys: {', '.join(missing)}. "
+                        "Forcing mock_llm=True."
+                    )
+                    self.mock_llm = True
 
         if not self.mock_search and not self.hyperbrowser_api_key:
             warnings.warn("MOCK_SEARCH=false but HYPERBROWSER_API_KEY missing. Forcing mock_search=True.")
@@ -107,18 +122,30 @@ class Config(BaseModel):
             return []
 
         missing = []
-        required = {
-            "OPENAI_API_KEY": self.openai_api_key,
-            "ANTHROPIC_API_KEY": self.anthropic_api_key,
-            "GOOGLE_API_KEY": self.google_api_key,
-            "HYPERBROWSER_API_KEY": self.hyperbrowser_api_key,
-            "E2B_API_KEY": self.e2b_api_key,
-            "TURBOPUFFER_API_KEY": self.turbopuffer_api_key,
-        }
 
-        for key, value in required.items():
-            if not value:
-                missing.append(key)
+        # LLM keys: OpenRouter OR native provider keys
+        if not self.mock_llm:
+            if self.openrouter_api_key:
+                pass  # OpenRouter covers all LLM roles
+            else:
+                native_keys = {
+                    "anthropic": ("ANTHROPIC_API_KEY", self.anthropic_api_key),
+                    "openai": ("OPENAI_API_KEY", self.openai_api_key),
+                    "google": ("GOOGLE_API_KEY", self.google_api_key),
+                }
+                for provider in {self.orchestrator_provider, self.extractor_provider, self.longform_provider}:
+                    if provider in native_keys:
+                        key_name, key_val = native_keys[provider]
+                        if not key_val:
+                            missing.append(key_name)
+
+        # Service keys
+        if not self.mock_search and not self.hyperbrowser_api_key:
+            missing.append("HYPERBROWSER_API_KEY")
+        if not self.mock_e2b and not self.e2b_api_key:
+            missing.append("E2B_API_KEY")
+        if not self.mock_memory and not self.turbopuffer_api_key:
+            missing.append("TURBOPUFFER_API_KEY")
 
         return missing
 
