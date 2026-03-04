@@ -45,27 +45,44 @@ class ResearchSkill:
         Returns:
             ResearchResult with findings and sources
         """
-        await self.stream.status("Planning research queries", "🧠")
-        
-        # Step 1: Plan search queries using orchestrator (Claude)
+        # Step 1: Plan search queries using Claude (orchestrator)
+        await self.stream.status("[1/5] Planning search queries → model: claude-sonnet-4 (orchestrator)", "🧠")
         queries = await self._plan_queries(question, context)
-        
+        await self.stream.status(
+            f"  ↳ Generated {len(queries)} queries: {' | '.join(f'\"{q}\"' for q in queries)}", "📋"
+        )
+
         # Step 2: Execute searches
-        await self.stream.status(f"Searching web ({len(queries)} queries)", "🔍")
+        source_label = "mock" if self.is_mock else "Hyperbrowser"
+        await self.stream.status(f"[2/5] Executing {len(queries)} searches → source: {source_label}", "🔍")
         search_results = await self._execute_searches(queries)
+        await self.stream.status(f"  ↳ Retrieved {len(search_results)} raw results", "📋")
 
         # Step 3: Deduplicate and re-rank results by relevance
+        before_dedup = len(search_results)
         search_results = self._deduplicate_results(search_results)
-        await self.stream.status("Re-ranking results by relevance", "🏆")
+        rerank_model = "mock" if self.is_mock else "gpt-4o (extractor)"
+        await self.stream.status(
+            f"[3/5] Deduped {before_dedup}→{len(search_results)} results, re-ranking → model: {rerank_model}", "🏆"
+        )
         search_results = await self._rerank_results(question, search_results)
 
         # Step 4: Fetch detailed content from top results
-        await self.stream.status("Fetching detailed sources", "📄")
+        fetch_label = "mock" if self.is_mock else "Hyperbrowser"
+        top_n = min(len(search_results), 8)
+        await self.stream.status(f"[4/5] Fetching full content for top {top_n} sources → source: {fetch_label}", "📄")
         detailed_sources = await self._fetch_sources(search_results)
-        
+        await self.stream.status(f"  ↳ Fetched {len(detailed_sources)} sources successfully", "📋")
+
         # Step 5: Extract structured data using GPT-4o
-        await self.stream.status("Extracting structured data", "🎯")
+        extract_model = "mock" if self.is_mock else "gpt-4o (extractor)"
+        await self.stream.status(f"[5/5] Extracting structured data from sources → model: {extract_model}", "🎯")
         extracted = await self._extract_data(question, detailed_sources)
+        if extracted:
+            keys_preview = ", ".join(list(extracted.keys())[:6])
+            await self.stream.status(f"  ↳ Extracted {len(extracted)} fields: {keys_preview}", "📋")
+        else:
+            await self.stream.status("  ↳ No structured data extracted", "📋")
 
         # Step 6: Synthesize findings
         findings = await self._synthesize_findings(question, detailed_sources, extracted)

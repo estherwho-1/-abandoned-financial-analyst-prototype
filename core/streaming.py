@@ -104,37 +104,40 @@ class StreamManager:
         for event in self.events:
             yield event.to_sse()
     
-    def print_console(self):
-        """Print all events to console (for CLI mode)."""
+    def print_event(self, event: StreamEvent):
+        """Print a single event to console (for real-time CLI output)."""
         from rich.console import Console
         from rich.markdown import Markdown
-        
+
         console = Console()
-        
+
+        if event.type == "status":
+            console.print(f"[cyan]{event.data}[/cyan]")
+
+        elif event.type == "chunk":
+            try:
+                console.print(Markdown(str(event.data)))
+            except:
+                console.print(event.data)
+
+        elif event.type == "chart":
+            console.print(f"[green]📊 Chart: {event.data['title']}[/green]")
+            if event.data.get('description'):
+                console.print(f"   {event.data['description']}")
+
+        elif event.type == "sources":
+            console.print("\n[yellow]📚 Sources:[/yellow]")
+            for i, source in enumerate(event.data, 1):
+                console.print(f"   {i}. {source['title']} - {source['url']}")
+
+        elif event.type == "done":
+            console.print(f"\n[green]✅ Completed in {event.data.get('total_time', 0):.1f}s[/green]")
+            console.print(f"   Models used: {', '.join(event.data.get('models_used', []))}")
+
+        elif event.type == "error":
+            console.print(f"[red]❌ Error: {event.data['message']}[/red]")
+
+    def print_console(self):
+        """Print all buffered events to console (batch mode)."""
         for event in self.events:
-            if event.type == "status":
-                console.print(f"[cyan]{event.data}[/cyan]")
-            
-            elif event.type == "chunk":
-                # Render markdown chunks
-                try:
-                    console.print(Markdown(str(event.data)))
-                except:
-                    console.print(event.data)
-            
-            elif event.type == "chart":
-                console.print(f"[green]📊 Chart: {event.data['title']}[/green]")
-                if event.data.get('description'):
-                    console.print(f"   {event.data['description']}")
-            
-            elif event.type == "sources":
-                console.print("\n[yellow]📚 Sources:[/yellow]")
-                for i, source in enumerate(event.data, 1):
-                    console.print(f"   {i}. {source['title']} - {source['url']}")
-            
-            elif event.type == "done":
-                console.print(f"\n[green]✅ Completed in {event.data.get('total_time', 0):.1f}s[/green]")
-                console.print(f"   Models used: {', '.join(event.data.get('models_used', []))}")
-            
-            elif event.type == "error":
-                console.print(f"[red]❌ Error: {event.data['message']}[/red]")
+            self.print_event(event)
