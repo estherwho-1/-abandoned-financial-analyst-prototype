@@ -48,15 +48,12 @@ async def main():
     # Create orchestrator
     orchestrator = Orchestrator()
     stream = orchestrator.get_stream()
-    
+
+    # Print events to console in real-time as they are emitted
+    stream.on_event(stream.print_event)
+
     # Execute query
     result = await orchestrator.execute(query)
-    
-    # Print results to console
-    print("\n" + "="*60)
-    print("📊 RESULTS")
-    print("="*60)
-    stream.print_console()
     
     print("\n" + "="*60)
     print("✅ Analysis complete!")
