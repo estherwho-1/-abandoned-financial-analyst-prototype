@@ -1,5 +1,6 @@
 """ResearchSkill - Web search and data extraction."""
 import asyncio
+import json
 from typing import Any
 from pydantic import BaseModel
 from core.models import ModelClient, Message
@@ -18,13 +19,14 @@ class ResearchResult(BaseModel):
 class ResearchSkill:
     """
     Gathers information from the web.
-    
+
     Flow:
     1. Takes research question
     2. Plans search queries (Claude)
     3. Executes searches (Hyperbrowser or mock)
-    4. Fetches top results
-    5. Extracts structured data (GPT-4o)
+    4. Deduplicates and re-ranks results by relevance (GPT-4o)
+    5. Fetches top results
+    6. Extracts structured data (GPT-4o)
     """
     
     def __init__(self, model_client: ModelClient, stream: StreamManager):
@@ -51,16 +53,21 @@ class ResearchSkill:
         # Step 2: Execute searches
         await self.stream.status(f"Searching web ({len(queries)} queries)", "🔍")
         search_results = await self._execute_searches(queries)
-        
-        # Step 3: Fetch detailed content from top results
+
+        # Step 3: Deduplicate and re-rank results by relevance
+        search_results = self._deduplicate_results(search_results)
+        await self.stream.status("Re-ranking results by relevance", "🏆")
+        search_results = await self._rerank_results(question, search_results)
+
+        # Step 4: Fetch detailed content from top results
         await self.stream.status("Fetching detailed sources", "📄")
         detailed_sources = await self._fetch_sources(search_results)
         
-        # Step 4: Extract structured data using GPT-4o
+        # Step 5: Extract structured data using GPT-4o
         await self.stream.status("Extracting structured data", "🎯")
         extracted = await self._extract_data(question, detailed_sources)
-        
-        # Step 5: Synthesize findings
+
+        # Step 6: Synthesize findings
         findings = await self._synthesize_findings(question, detailed_sources, extracted)
         
         return ResearchResult(
@@ -72,14 +79,12 @@ class ResearchSkill:
     
     async def _plan_queries(self, question: str, context: str) -> list[str]:
         """Use Claude to plan effective search queries."""
-        prompt = f"""You are a research planner. Given a research question, generate 3-5 effective search queries.
-
-Research Question: {question}
-
-Context: {context or "None"}
-
-Return ONLY a JSON array of search query strings, nothing else.
-Example: ["nvidia quarterly earnings 2025", "nvidia ai chip market share"]"""
+        prompt = f"""
+        You are a research planner. Given a research question, generate 3-5 effective search queries.
+        \nResearch Question: {question}
+        \nContext: {context or "None"}
+        \n\nReturn ONLY a JSON array of search query strings, nothing else.
+        \n\nExample: ["nvidia quarterly earnings 2025", "nvidia ai chip market share"]"""
         
         response = await self.model.complete(
             messages=[Message(role="user", content=prompt)],
@@ -87,16 +92,15 @@ Example: ["nvidia quarterly earnings 2025", "nvidia ai chip market share"]"""
         )
         
         # Parse queries from response
-        import json
         try:
             queries = json.loads(response.content)
             return queries[:5]  # Limit to 5 queries
         except:
             # Fallback: extract anything that looks like a query
             return [
-                f"{question} latest news",
-                f"{question} analysis",
-                f"{question} data",
+                f"latest news of {question}",
+                f"analysis of {question}",
+                f"data of {question}",
             ]
     
     async def _execute_searches(self, queries: list[str]) -> list[dict]:
@@ -117,8 +121,56 @@ Example: ["nvidia quarterly earnings 2025", "nvidia ai chip market share"]"""
                         results.append({"title": item.title, "url": item.url, "snippet": item.description})
         finally:
             await client.close()
-        return results[:10]
-    
+        return results
+
+    def _deduplicate_results(self, results: list[dict]) -> list[dict]:
+        """Remove duplicate results by URL."""
+        seen_urls: set[str] = set()
+        unique = []
+        for r in results:
+            if r["url"] not in seen_urls:
+                seen_urls.add(r["url"])
+                unique.append(r)
+        return unique
+
+    async def _rerank_results(self, question: str, results: list[dict]) -> list[dict]:
+        """Re-rank search results by relevance using GPT-4o."""
+        if not results:
+            return results
+
+        if self.is_mock:
+            return list(reversed(results))
+
+        snippets = "\n".join(
+            f"[{i}] {r['title']}: {r['snippet']}"
+            for i, r in enumerate(results)
+        )
+        prompt = f"""Given the research question and search results below, return a JSON array of result indices (integers) sorted from most relevant to least relevant.
+
+Question: {question}
+
+Results:
+{snippets}
+
+Return ONLY a JSON array of integers, e.g. [2, 0, 4, 1, 3]. Include every index exactly once."""
+
+        response = await self.model.complete(
+            messages=[Message(role="user", content=prompt)],
+            model="extractor",
+        )
+
+        try:
+            indices = json.loads(response.content)
+            ranked = [results[i] for i in indices if isinstance(i, int) and 0 <= i < len(results)]
+            # Append any results whose indices were missing
+            ranked_set = set(id(r) for r in ranked)
+            for r in results:
+                if id(r) not in ranked_set:
+                    ranked.append(r)
+            return ranked
+        except Exception:
+            return results
+
     def _mock_search(self, queries: list[str]) -> list[dict]:
         """Mock search results."""
         results = []
@@ -135,7 +187,7 @@ Example: ["nvidia quarterly earnings 2025", "nvidia ai chip market share"]"""
                     "snippet": f"Comprehensive coverage of {query} including expert perspectives...",
                 },
             ])
-        return results[:10]  # Return top 10 total
+        return results
     
     async def _fetch_sources(self, search_results: list[dict]) -> list[dict]:
         """Fetch full content from search result URLs."""
@@ -148,7 +200,7 @@ Example: ["nvidia quarterly earnings 2025", "nvidia ai chip market share"]"""
         client = AsyncHyperbrowser(api_key=config.hyperbrowser_api_key)
         sources = []
         try:
-            for result in search_results[:5]:
+            for result in search_results[:8]:
                 try:
                     resp = await client.web.fetch(FetchParams(url=result["url"]))
                     if resp.data:
@@ -166,7 +218,7 @@ Example: ["nvidia quarterly earnings 2025", "nvidia ai chip market share"]"""
     def _mock_fetch(self, search_results: list[dict]) -> list[dict]:
         """Mock fetched content."""
         detailed = []
-        for result in search_results[:5]:  # Top 5
+        for result in search_results[:8]:  # Top 8
             detailed.append({
                 "title": result["title"],
                 "url": result["url"],
@@ -194,7 +246,7 @@ The company reported record quarterly revenue of $18.1 billion, beating analyst 
         # Combine source content
         combined = "\n\n---\n\n".join([
             f"Source: {s['title']}\n{s['content'][:1000]}"
-            for s in sources[:3]
+            for s in sources[:5]
         ])
         
         prompt = f"""Extract structured financial data from these sources to answer: {question}
@@ -214,7 +266,6 @@ Return ONLY valid JSON, nothing else."""
         )
         
         # Parse JSON
-        import json
         try:
             return json.loads(response.content)
         except:

@@ -16,13 +16,16 @@ from config.config import config
 
 async def main():
     """Main CLI entry point."""
-    # Parse arguments
-    if len(sys.argv) < 2:
-        print("Usage: python main.py 'Your research question'")
-        print("Example: python main.py 'What is NVIDIA competitive position in AI chips?'")
-        sys.exit(1)
+    # # Parse arguments
+    # if len(sys.argv) < 2:
+    #     print("Usage: python main.py 'Your research question'")
+    #     print("Example: python main.py 'What is NVIDIA competitive position in AI chips?'")
+    #     sys.exit(1)
     
-    query = " ".join(sys.argv[1:])
+    # query = " ".join(sys.argv[1:])
+    query = """
+    NVDA competitive analysis, financials, and market position.
+    """
     
     # Check configuration
     if not config.is_mock_mode():
