@@ -1,4 +1,8 @@
-# 🏦 SAGE - Strategic Analyst & Guided Equity-researcher
+# 🏦 [ABANDONED] SAGE - Strategic Analyst & Guided Equity-researcher
+
+> ⚠️ **This project is abandoned.** Reason: updating design.
+
+---
 
 AI financial research analyst with multi-model orchestration. Searches the web, runs quantitative analysis, builds persistent knowledge, and streams real-time briefings.
 
@@ -6,7 +10,7 @@ AI financial research analyst with multi-model orchestration. Searches the web, 
 
 ### 1. Clone the Repository
 ```bash
-git clone git@github.com:estherwho-1/sage-financial-analyst.git
+git clone git@github.com:estherwho-1/-abandoned-financial-analyst-prototype.git
 cd sage-financial-analyst
 ```
 
@@ -139,3 +143,7 @@ cp config/.env.example config/.env
 - ✅ MCP server integration
 - 🚧 Real API integrations (add keys)
 - 🚧 Braintrust observability
+
+---
+
+*Last updated: March 2026 — Project abandoned*
